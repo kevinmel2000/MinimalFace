@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="digital_text_size_round">80dp</dimen>
-    <dimen name="digital_x_offset_round">25dp</dimen>
-    <dimen name="digital_y_offset">120dp</dimen>
 
-    <dimen name="digital_day_size_round">20dp</dimen>
-    <dimen name="digital_x_day_offset_round">60dp</dimen>
-    <dimen name="digital_y_day_offset">45dp</dimen>
+    <dimen name="month_text_size">20dp</dimen>
+    <dimen name="month_x_offset">60dp</dimen>
+    <dimen name="month_y_offset">50dp</dimen>
+
+    <dimen name="time_text_size">80dp</dimen>
+    <dimen name="time_x_offset">25dp</dimen>
+    <dimen name="time_y_offset">130dp</dimen>
+
+    <dimen name="day_text_size">38dp</dimen>
+    <dimen name="day_x_offset">60dp</dimen>
+    <dimen name="day_y_offset">200dp</dimen>
+
 </resources>

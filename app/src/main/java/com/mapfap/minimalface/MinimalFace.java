@@ -31,11 +31,13 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
-import android.text.format.Time;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import org.w3c.dom.Text;
+
 import java.lang.ref.WeakReference;
+import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -58,8 +60,11 @@ public class MinimalFace extends CanvasWatchFaceService {
      */
     private static final int MSG_UPDATE_TIME = 0;
     private static final String[] weekDayTexts = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    private static final int PRIMARY_COLOR = Color.BLACK;
-    private static final int SECONDARY_COLOR = Color.BLACK;
+    private static final String[] monthTexts = {"January", "February", "March", "April",
+            "May", "June", "July", "August", "September", "October", "November", "December"};
+
+    private TextElement[] textElements = new TextElement[3];
+
     @Override
     public Engine onCreateEngine() {
         return new Engine();
@@ -88,23 +93,24 @@ public class MinimalFace extends CanvasWatchFaceService {
     private class Engine extends CanvasWatchFaceService.Engine {
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
-        Paint mBackgroundPaint;
-        Paint mTextPaint;
-        Paint mDayPaint;
+
         boolean mAmbient;
-        Time mTime;
+        Calendar mCalendar;
+
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mTime.clear(intent.getStringExtra("time-zone"));
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             }
         };
-        float mXOffset;
-        float mYOffset;
 
-        float mXDayOffset;
-        float mYDayOffset;
+        Paint mBackgroundPaint;
+
+        TextElement mTimeElement;
+        TextElement mMonthElement;
+        TextElement mDayElement;
+
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -122,32 +128,35 @@ public class MinimalFace extends CanvasWatchFaceService {
                     .setShowSystemUiTime(false)
                     .build());
             Resources resources = MinimalFace.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
-            mYDayOffset = resources.getDimension(R.dimen.digital_y_day_offset);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(SECONDARY_COLOR);
+            mBackgroundPaint.setColor(resources.getColor(R.color.ink));
 
-            mTextPaint = new Paint();
-            mDayPaint = new Paint();
-//            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
-//            mDayPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTimeElement = new TextElement(resources.getDimension(R.dimen.time_text_size),
+                    resources.getDimension(R.dimen.time_x_offset),
+                    resources.getDimension(R.dimen.time_y_offset));
 
-            mTime = new Time();
+
+            mMonthElement = new TextElement(resources.getDimension(R.dimen.month_text_size),
+                    resources.getDimension(R.dimen.month_x_offset),
+                    resources.getDimension(R.dimen.month_y_offset));
+
+            mDayElement = new TextElement(resources.getDimension(R.dimen.day_text_size),
+                    resources.getDimension(R.dimen.day_x_offset),
+                    resources.getDimension(R.dimen.day_y_offset), true);
+
+            textElements[0] = mTimeElement;
+            textElements[1] = mMonthElement;
+            textElements[2] = mDayElement;
+
+
+            mCalendar = Calendar.getInstance();
         }
 
         @Override
         public void onDestroy() {
             mUpdateTimeHandler.removeMessages(MSG_UPDATE_TIME);
             super.onDestroy();
-        }
-
-        private Paint createTextPaint(int textColor) {
-            Paint paint = new Paint();
-            paint.setColor(textColor);
-            paint.setTypeface(NORMAL_TYPEFACE);
-            paint.setAntiAlias(true);
-            return paint;
         }
 
         @Override
@@ -158,8 +167,8 @@ public class MinimalFace extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mTime.clear(TimeZone.getDefault().getID());
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             } else {
                 unregisterReceiver();
             }
@@ -189,13 +198,6 @@ public class MinimalFace extends CanvasWatchFaceService {
         @Override
         public void onApplyWindowInsets(WindowInsets insets) {
             super.onApplyWindowInsets(insets);
-            Resources resources = MinimalFace.this.getResources();
-            mXOffset = resources.getDimension(R.dimen.digital_x_offset_round);
-            mXDayOffset = resources.getDimension(R.dimen.digital_x_day_offset_round);
-            float textSize = resources.getDimension(R.dimen.digital_text_size_round);
-            float daySize = resources.getDimension(R.dimen.digital_day_size_round);
-            mTextPaint.setTextSize(textSize);
-            mDayPaint.setTextSize(daySize);
         }
 
         @Override
@@ -216,8 +218,9 @@ public class MinimalFace extends CanvasWatchFaceService {
             if (mAmbient != inAmbientMode) {
                 mAmbient = inAmbientMode;
                 if (mLowBitAmbient) {
-                    mTextPaint.setAntiAlias(!inAmbientMode);
-                    mDayPaint.setAntiAlias(!inAmbientMode);
+                    for (TextElement textElement : textElements) {
+                        textElement.setAntiAlias(!inAmbientMode);
+                    }
                 }
                 invalidate();
             }
@@ -228,25 +231,27 @@ public class MinimalFace extends CanvasWatchFaceService {
 
         @Override
         public void onDraw(Canvas canvas, Rect bounds) {
+
             Resources resources = MinimalFace.this.getResources();
-            if (isInAmbientMode()) {
-                canvas.drawColor(Color.BLACK);
-                mTextPaint.setColor(Color.WHITE);
-                mDayPaint.setColor(Color.WHITE);
-            } else {
-                canvas.drawColor(Color.WHITE);
-                mTextPaint.setColor(PRIMARY_COLOR);
-                mDayPaint.setColor(PRIMARY_COLOR);
-                canvas.drawRect(0, 270, bounds.width(), bounds.height(), mBackgroundPaint);
+
+            canvas.drawColor(resources.getColor(R.color.background));
+            for (TextElement textElement : textElements) {
+                textElement.notInAmbient(resources);
             }
 
-            // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
-            mTime.setToNow();
-            String text = String.format("%d%02d", mTime.hour, mTime.minute);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            canvas.drawRect(0, 270, bounds.width(), bounds.height(), mBackgroundPaint);
 
-            String day = String.format("%s %d", weekDayTexts[mTime.weekDay], mTime.monthDay);
-            canvas.drawText(day, mXDayOffset, mYDayOffset, mDayPaint);
+            long now = System.currentTimeMillis();
+            mCalendar.setTimeInMillis(now);
+
+            String timeText = String.format("%02d%02d", mCalendar.get(Calendar.HOUR), mCalendar.get(Calendar.MINUTE));
+            mTimeElement.drawOn(canvas, timeText);
+
+            String monthText = String.format("%s", monthTexts[mCalendar.get(Calendar.MONTH)]);
+            mMonthElement.drawOn(canvas, monthText);
+
+            String dayText = String.format("%s %02d", weekDayTexts[mCalendar.get(Calendar.DAY_OF_WEEK) - 1], mCalendar.get(Calendar.DAY_OF_WEEK_IN_MONTH));
+            mDayElement.drawOn(canvas, dayText);
         }
 
         /**
