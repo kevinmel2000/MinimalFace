@@ -250,7 +250,7 @@ public class MinimalFace extends CanvasWatchFaceService {
             String monthText = String.format("%s", monthTexts[mCalendar.get(Calendar.MONTH)]);
             mMonthElement.drawOn(canvas, monthText);
 
-            String dayText = String.format("%s %02d", weekDayTexts[mCalendar.get(Calendar.DAY_OF_WEEK) - 1], mCalendar.get(Calendar.DAY_OF_WEEK_IN_MONTH));
+            String dayText = String.format("%s %02d", weekDayTexts[mCalendar.get(Calendar.DAY_OF_WEEK) - 1], mCalendar.get(Calendar.DATE));
             mDayElement.drawOn(canvas, dayText);
         }
 
